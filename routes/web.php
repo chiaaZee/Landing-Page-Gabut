@@ -2,8 +2,12 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Halaman Utama
 Route::get('/', function () {
+    return view('login');
+});
+
+// Halaman Utama
+Route::get('/index', function () {
     return view('index'); // Pastikan file index.blade.php ada
 })->name('index');
 
