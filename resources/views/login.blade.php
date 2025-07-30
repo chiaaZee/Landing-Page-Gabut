@@ -9,51 +9,87 @@
 <body class="bg-gray-100">
     <div class="h-full">
         <div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8" 
-            x-data="{
-                activeTab: 'login',
-                users: [
-                    {email: 'admin@example.com', password: 'password123', name: 'Admin'},
-                    {email: 'user@example.com', password: 'user1234', name: 'Regular User'}
-                ],
-                loginError: '',
-                registerError: '',
-                registerSuccess: false,
-                loginUser() {
-                    const email = document.getElementById('email').value;
-                    const password = document.getElementById('password').value;
+             x-data="{
+        activeTab: 'loginUser',
+        loginError: '',
+        registerError: '',
+        registerSuccess: false,
+        isLoading: false,
+
+        // FUNGSI UNTUK LOGIN KE API BACKEND
+        async loginUser() {
+            this.isLoading = true;
+            this.loginError = '';
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                // Memanggil endpoint /api/login dengan metode POST
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                // Mengambil data JSON dari respons
+                const data = await response.json();
+
+                // Jika respons berhasil (status 200 OK)
+                if (response.ok) {
+                    // Simpan token ke localStorage untuk sesi login
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
                     
-                    const user = this.users.find(u => u.email === email && u.password === password);
-                    
-                    if (user) {
-                        // Simpan user ke localStorage (bisa diganti dengan session/cookie)
-                        localStorage.setItem('currentUser', JSON.stringify(user));
-                        window.location.href = '/index'; // Redirect ke dashboard
-                    } else {
-                        this.loginError = 'Email atau password salah';
-                    }
-                },
-                registerUser() {
-                    const name = document.getElementById('name').value;
-                    const email = document.getElementById('email-register').value;
-                    const password = document.getElementById('password-register').value;
-                    const confirmPassword = document.getElementById('confirm-password').value;
-                    
-                    // Validasi
-                    if (password !== confirmPassword) {
-                        this.registerError = 'Password tidak cocok';
-                        return;
-                    }
-                    
-                    if (this.users.some(u => u.email === email)) {
-                        this.registerError = 'Email sudah terdaftar';
-                        return;
-                    }
-                    
-                    // Tambahkan user baru
-                    const newUser = {email, password, name};
-                    this.users.push(newUser);
-                    
-                    // Tampilkan pesan sukses
+                    // Arahkan ke halaman utama/dashboard
+                    window.location.href = '/index'; // Ganti '/index' jika perlu
+                } else {
+                    // Jika gagal, tampilkan pesan error dari server
+                    this.loginError = data.message || 'Terjadi kesalahan.';
+                }
+            } catch (error) {
+                // Jika ada error jaringan
+                this.loginError = 'Tidak dapat terhubung ke server.';
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        // FUNGSI UNTUK REGISTER KE API BACKEND
+        async registerUser() {
+            this.isLoading = true;
+            this.registerError = '';
+            this.registerSuccess = false;
+
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email-register').value;
+            const password = document.getElementById('password-register').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            if (password !== confirmPassword) {
+                this.registerError = 'Password tidak cocok';
+                this.isLoading = false;
+                return;
+            }
+
+            try {
+                // Memanggil endpoint /api/register dengan metode POST
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Jika registrasi berhasil, tampilkan pesan sukses
                     this.registerSuccess = true;
                     this.registerError = '';
                     
@@ -65,8 +101,21 @@
                         this.activeTab = 'login';
                         this.registerSuccess = false;
                     }, 2000);
+                } else {
+                    // Jika ada error validasi dari server
+                    if (data.errors) {
+                        this.registerError = Object.values(data.errors).join(' ');
+                    } else {
+                        this.registerError = data.message || 'Gagal mendaftar.';
+                    }
                 }
-            }">
+            } catch (error) {
+                this.registerError = 'Tidak dapat terhubung ke server.';
+            } finally {
+                this.isLoading = false;
+            }
+        }
+     }">
             <div class="sm:mx-auto sm:w-full sm:max-w-md">
                 <h2 class="mt-6 text-center text-3xl font-extrabold text-black">
                     Welcome
@@ -78,13 +127,13 @@
                     <!-- Tabs -->
                     <div class="flex border-b border-gray-200">
                         <button 
-                            @click="activeTab = 'login'"
+                            @click="activeTab = 'loginUser'"
                             :class="activeTab === 'login' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'"
                             class="py-4 px-1 border-b-2 font-medium text-sm flex-1 text-center">
                             Sign in
                         </button>
                         <button 
-                            @click="activeTab = 'register'"
+                            @click="activeTab = 'registerUser'"
                             :class="activeTab === 'register' ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'"
                             class="py-4 px-1 border-b-2 font-medium text-sm flex-1 text-center">
                             Create account
@@ -92,7 +141,7 @@
                     </div>
 
                     <!-- Login Form -->
-                    <div x-show="activeTab === 'login'" class="space-y-6 pt-6">
+                    <div x-show="activeTab === 'loginUser'" class="space-y-6 pt-6">
                         <form class="space-y-6" @submit.prevent="loginUser">
                             <div x-show="loginError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                                 <span x-text="loginError"></span>
@@ -144,7 +193,7 @@
                     </div>
 
                     <!-- Register Form -->
-                    <div x-show="activeTab === 'register'" class="space-y-6 pt-6">
+                    <div x-show="activeTab === 'registerUser'" class="space-y-6 pt-6">
                         <form id="register-form" class="space-y-6" @submit.prevent="registerUser">
                             <div x-show="registerError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                                 <span x-text="registerError"></span>

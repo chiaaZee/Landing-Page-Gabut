@@ -57,7 +57,7 @@ class AuthController extends Controller
 
 /** @var \App\Models\User $user */
         $user = Auth::user();
-        $token = $user->createToken('auth_token'); // Error syntax akan hilang  
+        $token = $user->createToken('auth_token')->plainTextToken; // Error syntax akan hilang  
 
     return response()->json([
         'token' => $token,
