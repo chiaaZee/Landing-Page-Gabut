@@ -9,6 +9,12 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Register any application services.
      */
+
+    protected $routeMiddleware = [
+    // ...
+    'cors' => \App\Http\Middleware\Cors::class,
+        ];
+
     public function register(): void
     {
         //

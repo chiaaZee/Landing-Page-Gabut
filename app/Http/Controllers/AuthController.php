@@ -2,61 +2,66 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+
 
 class AuthController extends Controller
 {
-    // Daftar user hardcoded (gantikan dengan data yang Anda inginkan)
-    private $users = [
-        [
-            'email' => 'admin@example.com',
-            'password' => 'password123',
-            'name' => 'Admin'
-        ],
-        [
-            'email' => 'user@example.com',
-            'password' => 'user1234',
-            'name' => 'Regular User'
-        ]
-    ];
+    public function register(Request $request)   
+    {   
+        try {
+            $request->validate([
+                'name' => 'required|string',
+                'email' => 'required|string|email|unique:users',
+                'password' => 'required|min:8'
+            ]);
 
-    public function showLoginForm()
-    {
-        return view('auth.login');
-    }
+            $user = User::create( [
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password), // Enkripsi password
+            ]);
 
-    public function login(Request $request)
-    {
-        $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
+            return response()->json([
+                'user' => $user,
+                'token' => $user->createToken('auth_token')->plainTextToken
+            ],);
+        
+    } catch (\Illuminate\Validation\ValidationException $e) {
+    return response()->json([
+        'message' => 'Validasi gagal',
+        'errors' => $e->errors()
+    ], 422);
 
-        // Cek kecocokan email dan password
-        $authenticatedUser = null;
-        foreach ($this->users as $user) {
-            if ($user['email'] === $credentials['email'] && 
-                $user['password'] === $credentials['password']) {
-                $authenticatedUser = $user;
-                break;
-            }
+    
+    }catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ],500);
         }
 
-        if ($authenticatedUser) {
-            // Simpan user ke session
-            $request->session()->put('user', $authenticatedUser);
-            return redirect()->intended('/dashboard');
-        }
+}
 
-        return back()->withErrors([
-            'email' => 'Email atau password salah.',
-        ])->onlyInput('email');
+   public function login(Request $request)
+{
+    $credentials = $request->validate([
+        'email' => 'required|email',
+        'password' => 'required'
+    ]);
+
+    if (!Auth::attempt($credentials)) {
+        return response()->json(['error' => 'Unauthorized'], 401);
     }
 
-    public function logout(Request $request)
-    {
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-        return redirect('/');
-    }
+/** @var \App\Models\User $user */
+        $user = Auth::user();
+        $token = $user->createToken('auth_token'); // Error syntax akan hilang  
+
+    return response()->json([
+        'token' => $token,
+        'user' => $user
+    ]);
+}
 }
